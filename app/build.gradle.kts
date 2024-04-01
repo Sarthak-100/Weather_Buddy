@@ -61,6 +61,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material:1.6.1")
+    implementation ("androidx.compose.material:material-icons-extended:1.6.1")
     implementation("io.ktor:ktor-client-android:1.6.7")
     implementation("io.ktor:ktor-client-serialization-jvm:1.6.7")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")

@@ -1,38 +1,43 @@
 package com.example.weather_app
 
+import android.content.Context
+import android.net.ConnectivityManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.Alignment
+import androidx.room.*
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.example.weather_app.ui.theme.Weather_AppTheme
-import android.util.Log
 import io.ktor.client.*
-import kotlinx.serialization.Serializable
 import io.ktor.client.engine.android.*
 import io.ktor.client.features.json.*
 import io.ktor.client.features.json.serializer.*
 import io.ktor.client.request.*
-import androidx.room.*
-import java.text.SimpleDateFormat
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.launch
-import android.content.Context
-import android.net.ConnectivityManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.Color
-import java.util.Locale
-import java.util.Date
-import java.math.RoundingMode
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import java.math.RoundingMode
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 
 data class WeatherInfo(val maxTemp: Double, val minTemp: Double)
 
@@ -122,18 +127,35 @@ fun WeatherApp(database: WeatherDatabase) {
             )
         }
     }
-
+    val weatherImage = painterResource(R.drawable.weather_logo)
     var date by remember { mutableStateOf(TextFieldValue()) }
     var weatherInfo by remember { mutableStateOf<WeatherInfo?>(null) }
     val coroutineScope = rememberCoroutineScope()
     var error by remember { mutableStateOf<String?>(null) }
     var showErrorSnackbar by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    val city by remember { mutableStateOf("New York") }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        Text(
+            text = "Weather App",
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+
+        Image(
+            painter = weatherImage,
+            contentDescription = "Weather Image",
+            modifier = Modifier.fillMaxWidth().height(200.dp)
+        )
+
+        Text(
+            text = "City: $city"
+        )
+
         OutlinedTextField(
             value = date,
             onValueChange = {
@@ -147,14 +169,16 @@ fun WeatherApp(database: WeatherDatabase) {
                 Log.d("WeatherApp", "Get Weather button clicked")
                 if (isValidDate(date.text)) {
                     coroutineScope.launch {
+                        isLoading = true
                         weatherInfo = fetchWeatherInfo(
                             client,
-                            "New York,NY",
+                            city,
                             date.text,
                             "ZY5N3Q53GSTKKKLJEXUEUQYEX",
                             database,
                             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager,
                         )
+                        isLoading = false
                     }
                 }
                 else{
@@ -170,27 +194,46 @@ fun WeatherApp(database: WeatherDatabase) {
         if (showErrorSnackbar) {
             Snackbar(
                 modifier = Modifier.padding(16.dp),
-                action = {
-                    Button(
-                        onClick = {
-                            showErrorSnackbar = false
-                        },
-                    ) {
-                        Text("Dismiss")
-                    }
-                },
+//                action = {
+//                    Button(
+//                        onClick = {
+//                            showErrorSnackbar = false
+//                        },
+//                    ) {
+//                        Text("Dismiss")
+//                    }
+//                },
             ) {
                 Text(errorMessage, color = Color.White)
             }
         }
-
-        if (error == null) {
-            weatherInfo?.let {
-                Text("Max Temp: ${it.maxTemp}°C")
-                Text("Min Temp: ${it.minTemp}°C")
+        if (isLoading) {
+            showErrorSnackbar = false
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+        } else {
+            if (error == null) {
+                if (weatherInfo == null) {
+                    errorMessage = "Error fetching data"
+                    showErrorSnackbar = true
+                }
+                weatherInfo?.let {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        showErrorSnackbar = false
+                        Text(
+                            text = "Max Temp: ${it.maxTemp}°C",
+                            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "Min Temp: ${it.minTemp}°C",
+                            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
             }
         }
-
     }
 
 }
@@ -315,7 +358,6 @@ private suspend fun fetchAverageWeatherInfoForFutureDate(
     return null
 }
 
-
 suspend fun retrieveWeatherInfoFromDatabase(cityName: String, date: String, database: WeatherDatabase): WeatherInfo? {
     Log.d("WeatherApp", "Retrieving weather info from database")
 
@@ -331,13 +373,12 @@ suspend fun retrieveWeatherInfoFromDatabase(cityName: String, date: String, data
                 Log.d("WeatherApp", "Future date not present in database...Trying to find average of past 10 years data")
                 val avgMaxTemp = database.weatherDao().getAverageMaxTemp(cityName, date)
                 val avgMinTemp = database.weatherDao().getAverageMinTemp(cityName, date)
-                Log.d("WeatherApp", "Retrieved Data: avgMaxTemp:$avgMaxTemp avgMinTemp:$avgMinTemp")
                 return if (avgMaxTemp != null && avgMinTemp != null) {
                     Log.d("WeatherApp", "Retrieved Data: avgMaxTemp:$avgMaxTemp avgMinTemp:$avgMinTemp")
                     WeatherInfo(avgMaxTemp, avgMinTemp)
                 } else {
                     Log.d("WeatherApp", "Complete data of past 10 years not found in database")
-                    null
+                    return null
                 }
             }
         }
@@ -354,7 +395,7 @@ suspend fun retrieveWeatherInfoFromDatabase(cityName: String, date: String, data
             WeatherInfo(weatherData.maxTemp, weatherData.minTemp)
         } else {
             Log.d("WeatherApp", "Data not found in database")
-            null
+            return null
         }
     }
 }
