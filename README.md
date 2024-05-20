@@ -39,6 +39,15 @@ The app follows the MVVM (Model-View-ViewModel) architecture pattern:
 4. If the date is in the future, the app calculates the average temperature for the past 10 years and stores it in the database.
 5. If the date is in the past, the app fetches weather data from the database.
 6. The fetched weather data is displayed on the UI.
+   
+## Getting Started
+
+To run the app, follow these steps:
+
+1. Clone the repository: `git clone https://github.com/Sarthak-100/Weather_Buddy.git`
+
+2. Open the project in Android Studio.
+3. Run the app on an Android emulator or physical device.
 
 ### Usage
 
