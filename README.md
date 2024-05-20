@@ -52,3 +52,12 @@ To run the app, follow these steps:
 ### Usage
 
 To use the app, simply enter a valid date in the input field and click the "Get Weather" button. The app will display the maximum and minimum temperature for the specified date.
+
+## Contributing
+
+Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
