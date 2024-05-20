@@ -69,10 +69,10 @@ interface WeatherDao {
     @Query("DELETE FROM weather")
     suspend fun clearAllWeatherData()
 
-    @Query("SELECT ROUND(AVG(maxTemp), 2) FROM weather WHERE cityName = :cityName AND strftime('%Y', date) BETWEEN strftime('%Y', date(:date, '-10 years')) AND strftime('%Y', date(:date, '-1 day'))")
+    @Query("SELECT ROUND(AVG(maxTemp), 2) FROM weather WHERE cityName = :cityName AND strftime('%Y', date) BETWEEN strftime('%Y', date(:date, '-10 years')) AND strftime('%Y', date(:date, '-1 day')) AND (SELECT COUNT(*) FROM weather WHERE cityName = :cityName AND strftime('%Y', date) BETWEEN strftime('%Y', date(:date, '-10 years')) AND strftime('%Y', date(:date, '-1 day'))) = 10")
     suspend fun getAverageMaxTemp(cityName: String, date: String): Double?
 
-    @Query("SELECT ROUND(AVG(minTemp), 2) FROM weather WHERE cityName = :cityName AND strftime('%Y', date) BETWEEN strftime('%Y', date(:date, '-10 years')) AND strftime('%Y', date(:date, '-1 day'))")
+    @Query("SELECT ROUND(AVG(minTemp), 2) FROM weather WHERE cityName = :cityName AND strftime('%Y', date) BETWEEN strftime('%Y', date(:date, '-10 years')) AND strftime('%Y', date(:date, '-1 day')) AND (SELECT COUNT(*) FROM weather WHERE cityName = :cityName AND strftime('%Y', date) BETWEEN strftime('%Y', date(:date, '-10 years')) AND strftime('%Y', date(:date, '-1 day'))) = 10")
     suspend fun getAverageMinTemp(cityName: String, date: String): Double?
 
 }
@@ -131,6 +131,7 @@ fun WeatherApp(database: WeatherDatabase) {
     var date by remember { mutableStateOf(TextFieldValue()) }
     var weatherInfo by remember { mutableStateOf<WeatherInfo?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    var isDataFetchAttempted by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var showErrorSnackbar by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -194,15 +195,7 @@ fun WeatherApp(database: WeatherDatabase) {
         if (showErrorSnackbar) {
             Snackbar(
                 modifier = Modifier.padding(16.dp),
-//                action = {
-//                    Button(
-//                        onClick = {
-//                            showErrorSnackbar = false
-//                        },
-//                    ) {
-//                        Text("Dismiss")
-//                    }
-//                },
+
             ) {
                 Text(errorMessage, color = Color.White)
             }
@@ -212,11 +205,16 @@ fun WeatherApp(database: WeatherDatabase) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
         } else {
             if (error == null) {
-                if (weatherInfo == null) {
-                    errorMessage = "Error fetching data"
-                    showErrorSnackbar = true
-                }
+//                if(weatherInfo == null){
+//                    showErrorSnackbar = true
+//                    errorMessage = "Error fetching data."
+//                }
+//                else{
+//                    showErrorSnackbar = false
+//                }
                 weatherInfo?.let {
+                    isDataFetchAttempted = true
+                    showErrorSnackbar = false
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -230,6 +228,11 @@ fun WeatherApp(database: WeatherDatabase) {
                             text = "Min Temp: ${it.minTemp}°C",
                             style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         )
+                    }
+                }?: run {
+                    if (isDataFetchAttempted) {
+                        showErrorSnackbar = true
+                        errorMessage = "Error fetching data."
                     }
                 }
             }
@@ -270,15 +273,23 @@ suspend fun fetchWeatherInfo(
     connectivityManager: ConnectivityManager
 ): WeatherInfo? {
     fetchAndLogAllWeatherData(database)
-    return if (!isInternetAvailable(connectivityManager)) {
+    var resp: WeatherInfo? = null;
+    if (!isInternetAvailable(connectivityManager)) {
         Log.d("WeatherApp", "No internet connection")
-        retrieveWeatherInfoFromDatabase(cityName, date, database)
+        resp = retrieveWeatherInfoFromDatabase(cityName, date, database)
     } else if (isFutureDate(date)) {
         Log.d("WeatherApp", "Internet Connection Available fetching data from API")
-        fetchAverageWeatherInfoForFutureDate(client, cityName, date, apiKey, database)
+        resp = fetchAverageWeatherInfoForFutureDate(client, cityName, date, apiKey, database)
     } else {
         Log.d("WeatherApp", "Internet Connection Available fetching data from API")
-        fetchAndStoreWeatherInfo(client, cityName, date, apiKey, database)
+        resp = fetchAndStoreWeatherInfo(client, cityName, date, apiKey, database)
+    }
+
+    if (resp != null) {
+        return resp;
+    }
+    else{
+        return null
     }
 }
 
@@ -378,7 +389,7 @@ suspend fun retrieveWeatherInfoFromDatabase(cityName: String, date: String, data
                     WeatherInfo(avgMaxTemp, avgMinTemp)
                 } else {
                     Log.d("WeatherApp", "Complete data of past 10 years not found in database")
-                    return null
+                    null
                 }
             }
         }
