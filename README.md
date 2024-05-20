@@ -1,4 +1,9 @@
 # Weather Buddy
+<p align="center">
+  <img src="https://github.com/Sarthak-100/Weather_Buddy/assets/82911845/9298f486-56c4-477a-8f76-ec4ae599e274" width="300" height="500">
+  <img src="https://github.com/Sarthak-100/Weather_Buddy/assets/82911845/b6b45a5f-e632-430d-b260-c4457cb168df" width="350" height="500">
+</p>
+
 
 This Android app allows users to fetch weather information for a specific date. It uses the Visual Crossing Weather API to retrieve weather data for a given city and date. The app also stores fetched weather data in a local Room database for offline access.
 
